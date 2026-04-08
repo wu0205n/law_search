@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法規條文檢索系統</title>
+    <style>
+        body {
+            font-family: "Times New Roman", "標楷體", BiauKai, serif;
+            font-weight: bold;
+            font-size: 20px;
+            padding: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #000000;
+            color: #ffffff;
+        }
+        h2 {
+            font-size: 32px;
+            border-bottom: 3px solid #777777;
+            padding-bottom: 15px;
+        }
+        .control-group {
+            margin-bottom: 20px;
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #333333;
+            box-shadow: 0 2px 5px rgba(255,255,255,0.05);
+        }
+        label {
+            margin-right: 15px;
+            display: inline-block;
+            min-width: 120px;
+        }
+        select, input[type="text"], input[type="file"] {
+            font-family: inherit;
+            font-weight: inherit;
+            padding: 10px;
+            font-size: 20px;
+            background-color: #2c2c2c;
+            color: #ffffff;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        select, input[type="text"] {
+            width: 300px;
+        }
+        button {
+            font-family: inherit;
+            font-weight: inherit;
+            padding: 10px 25px;
+            font-size: 20px;
+            background-color: #3b5998;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #4c70ba;
+        }
+        #result {
+            margin-top: 25px;
+            padding: 25px;
+            background-color: #1a1a1a;
+            border-left: 6px solid #4a90e2;
+            border-radius: 4px;
+            border: 1px solid #333333;
+            box-shadow: 0 2px 5px rgba(255,255,255,0.05);
+            white-space: pre-wrap;
+            line-height: 1.8;
+            font-size: 22px;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        #fileStatus {
+            color: #69f0ae;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>法規條文檢索系統</h2>
+
+    <div class="control-group">
+        <label for="fileInput">第一步：載入法規</label>
+        <input type="file" id="fileInput" multiple accept=".txt">
+        <span id="fileStatus"></span>
+    </div>
+
+    <div class="control-group">
+        <label for="lawSelect">第二步：選擇法規</label>
+        <select id="lawSelect">
+            <option value="">請先載入法規檔案...</option>
+        </select>
+    </div>
+
+    <div class="control-group">
+        <label for="articleInput">第三步：輸入條號</label>
+        <input type="text" id="articleInput" placeholder="例如：5 或 1 5">
+        <button onclick="searchArticle()">搜尋</button>
+    </div>
+
+    <div id="result">請載入法規檔並輸入條號進行檢索。</div>
+
+    <script>
+        let lawDatabase = {};
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            lawDatabase = {}; 
+            const select = document.getElementById('lawSelect');
+            select.innerHTML = ''; 
+            let loadedCount = 0;
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const lawName = file.name.replace(/\.[^/.]+$/, "");
+                    lawDatabase[lawName] = event.target.result;
+
+                    const option = document.createElement('option');
+                    option.value = lawName;
+                    option.textContent = lawName;
+                    select.appendChild(option);
+
+                    loadedCount++;
+                    if (loadedCount === files.length) {
+                        document.getElementById('fileStatus').textContent = `（已成功載入 ${loadedCount} 部法規）`;
+                    }
+                };
+                reader.readAsText(file);
+            });
+        });
+
+        function parseArticleNumber(str) {
+            const parts = str.split('-');
+            return parseFloat(parts[0]) + (parts.length > 1 ? parseFloat(parts[1]) / 1000 : 0);
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function searchArticle() {
+            const lawKey = document.getElementById('lawSelect').value;
+            const articleInput = document.getElementById('articleInput').value.trim();
+            const resultDiv = document.getElementById('result');
+
+            if (!lawKey) {
+                resultDiv.innerHTML = '<span class="error">查無確切資訊（請先載入並選擇法規檔案）</span>';
+                return;
+            }
+            if (!articleInput) {
+                resultDiv.innerHTML = '<span class="error">查無確切資訊（請輸入條號）</span>';
+                return;
+            }
+
+            const rawText = lawDatabase[lawKey];
+            
+            const inputParts = articleInput.split(/\s+/).filter(Boolean);
+            let startStr = inputParts[0];
+            let endStr = inputParts.length > 1 ? inputParts[1] : inputParts[0];
+
+            if (parseArticleNumber(startStr) > parseArticleNumber(endStr)) {
+                [startStr, endStr] = [endStr, startStr];
+            }
+
+            const escapedStart = escapeRegExp(startStr);
+            const startRegex = new RegExp('(?:^|\\r?\\n)\\s*第\\s*' + escapedStart + '\\s*條', 'i');
+            const startMatch = rawText.match(startRegex);
+
+            if (!startMatch) {
+                resultDiv.innerHTML = `<span class="error">查無確切資訊（找不到起始條文：第 ${startStr} 條）</span>`;
+                return;
+            }
+            const startIndex = startMatch.index;
+
+            const escapedEnd = escapeRegExp(endStr);
+            const endRegexString = `(?:^|\\r?\\n)\\s*(第\\s*${escapedEnd}\\s*條[\\s\\S]*?)(?=\\r?\\n\\s*第\\s*\\d+(?:-\\d+)?\\s*條|\\r?\\n\\s*第\\s*[一二三四五六七八九十百\\d]+\\s*(?:編|章|節|款|目)|$)`;
+            const endRegex = new RegExp(endRegexString, 'i');
+            const endMatch = rawText.match(endRegex);
+
+            if (!endMatch) {
+                resultDiv.innerHTML = `<span class="error">查無確切資訊（找不到結束條文：第 ${endStr} 條）</span>`;
+                return;
+            }
+            
+            // 修正截取長度的計算基準
+            const endIndex = endMatch.index + endMatch[0].length;
+
+            let cleanText = rawText.substring(startIndex, endIndex).trim();
+
+            if (startStr === endStr) {
+                const pureTitleRegex = new RegExp(`^第\\s*${escapedStart}\\s*條$`);
+                if (pureTitleRegex.test(cleanText.replace(/\s+/g, ''))) {
+                    resultDiv.innerHTML = '<span class="error">查無確切資訊（該條文可能已被刪除或無內容）</span>';
+                    return;
+                }
+            }
+
+            resultDiv.textContent = cleanText;
+        }
+        
+        document.getElementById('articleInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                searchArticle();
+            }
+        });
+    </script>
+</body>
+</html>
