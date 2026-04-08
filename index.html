@@ -86,57 +86,83 @@
 
     <h2>法規條文檢索系統</h2>
 
-    <div class="control-group">
-        <label for="fileInput">第一步：載入法規</label>
+    <div style="display: none;">
         <input type="file" id="fileInput" multiple accept=".txt">
+    </div>
+
+    <div class="control-group">
+        <label for="lawSelect">第一步：選擇法規</label>
+        <select id="lawSelect">
+            <option value="">載入中...</option>
+        </select>
         <span id="fileStatus"></span>
     </div>
 
     <div class="control-group">
-        <label for="lawSelect">第二步：選擇法規</label>
-        <select id="lawSelect">
-            <option value="">請先載入法規檔案...</option>
-        </select>
-    </div>
-
-    <div class="control-group">
-        <label for="articleInput">第三步：輸入條號</label>
+        <label for="articleInput">第二步：輸入條號</label>
         <input type="text" id="articleInput" placeholder="例如：5 或 1 5">
         <button onclick="searchArticle()">搜尋</button>
     </div>
 
-    <div id="result">請載入法規檔並輸入條號進行檢索。</div>
+    <div id="result">請輸入條號進行檢索。</div>
 
     <script>
         let lawDatabase = {};
 
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const files = e.target.files;
-            if (files.length === 0) return;
+        // 定義要自動載入的法規檔案清單
+        const lawFiles = [
+            '公司法.txt',
+            '行政程序法.txt',
+            '記帳士法.txt',
+            '商業登記法.txt',
+            '商業會計法.txt',
+            '商業會計處理準則.txt'
+        ];
 
-            lawDatabase = {}; 
+        // 網頁載入完成時執行自動抓取
+        window.addEventListener('DOMContentLoaded', async function() {
             const select = document.getElementById('lawSelect');
-            select.innerHTML = ''; 
             let loadedCount = 0;
 
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const lawName = file.name.replace(/\.[^/.]+$/, "");
-                    lawDatabase[lawName] = event.target.result;
+            for (const filename of lawFiles) {
+                try {
+                    // 使用 fetch API 取得同目錄下的 txt 檔案
+                    const response = await fetch(filename);
+                    if (!response.ok) throw new Error(`HTTP 錯誤狀態: ${response.status}`);
+                    
+                    const text = await response.text();
+                    const lawName = filename.replace(/\.[^/.]+$/, ""); // 去除副檔名
+                    
+                    // 寫入資料庫
+                    lawDatabase[lawName] = text;
 
+                    // 第一次成功載入時清空「載入中...」的選項
+                    if (loadedCount === 0) {
+                        select.innerHTML = '';
+                    }
+
+                    // 動態新增選項至下拉式選單
                     const option = document.createElement('option');
                     option.value = lawName;
                     option.textContent = lawName;
                     select.appendChild(option);
 
                     loadedCount++;
-                    if (loadedCount === files.length) {
-                        document.getElementById('fileStatus').textContent = `（已成功載入 ${loadedCount} 部法規）`;
-                    }
-                };
-                reader.readAsText(file);
-            });
+                } catch (error) {
+                    console.error("無法載入檔案：" + filename, error);
+                }
+            }
+
+            // 更新狀態文字
+            const statusSpan = document.getElementById('fileStatus');
+            if (loadedCount > 0) {
+                statusSpan.textContent = `（已成功自動載入 ${loadedCount} 部法規）`;
+                statusSpan.style.color = '#69f0ae';
+            } else {
+                select.innerHTML = '<option value="">載入失敗</option>';
+                statusSpan.textContent = '（法規載入失敗，請確認檔案已上傳至 GitHub）';
+                statusSpan.style.color = '#ff6b6b';
+            }
         });
 
         function parseArticleNumber(str) {
@@ -154,7 +180,7 @@
             const resultDiv = document.getElementById('result');
 
             if (!lawKey) {
-                resultDiv.innerHTML = '<span class="error">查無確切資訊（請先載入並選擇法規檔案）</span>';
+                resultDiv.innerHTML = '<span class="error">查無確切資訊（請先等待法規載入或重新整理網頁）</span>';
                 return;
             }
             if (!articleInput) {
