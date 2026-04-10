@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>法規條文檢索系統</title>
     <style>
-        /* 沿用上一個版本的深色模式變數 */
+        /* 直接定義深色模式為預設變數 */
         :root {
             --bg-color: #121212;
             --text-color: #e0e0e0;
@@ -22,16 +22,15 @@
         }
 
         body {
-            /* 保留法規常用的標楷體設定，並套用深色模式與 20px 大小 */
-            font-family: "Times New Roman", "標楷體", BiauKai, serif;
-            font-weight: bold;
+            /* 字型完全對齊題庫系統的設定 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             line-height: 1.6;
-            font-size: 20px;
+            font-size: 20px; /* 設定整體預設字型大小為 20px */
         }
 
         h1 {
@@ -54,6 +53,7 @@
 
         label {
             display: block;
+            font-weight: bold; /* 加上標籤粗體，與題庫系統一致 */
             margin-bottom: 5px;
         }
 
@@ -65,9 +65,7 @@
             color: var(--input-text);
             border-radius: 4px;
             box-sizing: border-box;
-            font-size: 20px;
-            font-family: inherit;
-            font-weight: inherit;
+            font-size: 20px; /* 統一字型大小 */
         }
 
         .search-btn {
@@ -81,7 +79,6 @@
             width: 100%;
             transition: background-color 0.3s;
             font-weight: bold;
-            font-family: inherit;
         }
 
         .search-btn:hover {
@@ -102,6 +99,7 @@
 
         .status {
             margin-top: 10px;
+            font-weight: bold; /* 加上粗體，與題庫系統一致 */
             font-size: 20px;
         }
 
